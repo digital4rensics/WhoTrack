@@ -10,7 +10,8 @@ Planned improvements for: 1.) Proxy support 2.) Reporting 3.) History Tracking
 
 No warranty is implied or expressed, use at your own risk.
 
-usage: WhoDat.py [-h] [-d DATABASE] [-i INSERT] [-p PROXIES] [-s SERVERS] [-v]
+usage: WhoTrack.py [-h] [-d DATABASE] [-i INSERT] [-p PROXIES] [-t TEST]
+                   [-s SERVERS] [-v]
 
 Track Daily Domain Registrant Changes
 
@@ -22,6 +23,8 @@ optional arguments:
                         Insert new domain in to the database
   -p PROXIES, --proxies PROXIES
                         Specify a list of proxies to conduct lookups
+  -t TEST, --test TEST  Bypass database to test parsers against a specific
+                        domain
   -s SERVERS, --servers SERVERS
                         Specify different servers file
   -v, --verbose         Enable command line output
@@ -34,6 +37,7 @@ import socket
 import sqlite3
 import argparse
 from random import choice
+from datetime import date
 
 sys.path.append('./')
 sys.path.append('./parsers/')
@@ -155,6 +159,7 @@ def insertdata(data, db, dom):
 		ish = "Change detected\n" + "Old Data: " + str(current) + "\n" + "New Data: " + str(test) + "\n"
 		db.execute("UPDATE Domains SET Name=?, Org=?, Addr=?, Email=?, Phone=?, Fax=? WHERE Domain=?", 
 		(data['name'], data['organization'], data['address'], data['email'], data['phone'], data['fax'], dom))
+		report.write(ish)
 		if verb:
 			print ish
 	else:
@@ -232,13 +237,15 @@ def main():
 	global servlist
 	global proxylist
 	global verb
+	global report
 	
 	parser = argparse.ArgumentParser(description="Track Daily Domain Registrant Changes")
 	parser.add_argument("-d", "--database", help="Specify database name")
 	parser.add_argument("-i", "--insert", help="Insert new domain in to the database")
 	parser.add_argument("-p", "--proxies", help="Specify a list of proxies to conduct lookups")
-	parser.add_argument("-t", "--test", help="Bypass database to test parsers against a specific domain")
+	parser.add_argument("-r", "--report", help="Specify a report filename other than the default")
 	parser.add_argument("-s", "--servers", help="Specify different servers file")
+	parser.add_argument("-t", "--test", help="Bypass database to test parsers against a specific domain")
 	parser.add_argument("-v", "--verbose", action="store_true", help="Enable command line output")
 	args = parser.parse_args()
 
@@ -271,6 +278,12 @@ def main():
 		db.close()
 		sys.exit()
 
+	if args.report:
+		report = open(args.report, 'w')	
+	else:
+		rname = date.isoformat(date.today()) + "_Report.txt"
+		report = open(rname, 'w')
+		
 	doms = getdata(db)
 
 	#If you want to use proxies to make the requests
@@ -289,6 +302,7 @@ def main():
 			insertdata(ws, db, row)
 	
 	db.close()	
+	report.close()
 
 if __name__ == "__main__":
 	try:
