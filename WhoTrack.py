@@ -191,10 +191,10 @@ def dowhois(dom, col, recurse):
 		record = extractdata(dom, tld, response, redo)
 		if record:
 			return record
-		except:
-			ish = "Error in connection to " + srv + " for " + dom
-			if verb:
-				print ish
+	except:
+		ish = "Error in connection to " + srv + " for " + dom
+		if verb:
+			print ish
 		
 #Get Correct server to use
 def findserver(tld, col):
@@ -237,6 +237,7 @@ def main():
 	parser.add_argument("-d", "--database", help="Specify database name")
 	parser.add_argument("-i", "--insert", help="Insert new domain in to the database")
 	parser.add_argument("-p", "--proxies", help="Specify a list of proxies to conduct lookups")
+	parser.add_argument("-t", "--test", help="Bypass database to test parsers against a specific domain")
 	parser.add_argument("-s", "--servers", help="Specify different servers file")
 	parser.add_argument("-v", "--verbose", action="store_true", help="Enable command line output")
 	args = parser.parse_args()
@@ -246,7 +247,18 @@ def main():
 		verb = True
 	else:
 		verb = False
+		
+	#If a custom server file was specified
+	if args.servers:
+		servlist = genservers(args.servers)
+	else:
+		servlist = genservers('servers.txt')
 
+	#If testing new parsers
+	if args.test:
+		testdat = dowhois(args.test, servlist, None)
+		print testdat
+		
 	#If a custom database was specified
 	if args.database:
 		db = dbsetup(args.database)
@@ -258,12 +270,6 @@ def main():
 		newdomain(args.insert, db)
 		db.close()
 		sys.exit()
-
-	#If a custom server file was specified
-	if args.servers:
-		servlist = genservers(args.servers)
-	else:
-		servlist = genservers('servers.txt')
 
 	doms = getdata(db)
 
