@@ -174,27 +174,27 @@ def dowhois(dom, col, recurse):
 	else:	
 		tld, srv = findserver(dom, col)
 	
-	#try:
+	try:
 	#Build connection
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.connect((srv, 43))
-	if verb:
-		print "Connected Successfully to " + srv + " for " + dom
-	s.send(dom + "\r\n")
+		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s.connect((srv, 43))
+		if verb:
+			print "Connected Successfully to " + srv + " for " + dom
+		s.send(dom + "\r\n")
 
-	while True:
-		d = s.recv(4096)
-		response += d
-		if not d:
-			break
-	s.close()
-	record = extractdata(dom, tld, response, redo)
-	if record:
-		return record
-	#except:
-	#	ish = "Error in connection to " + srv + " for " + dom
-	#	if verb:
-	#		print ish
+		while True:
+			d = s.recv(4096)
+			response += d
+			if not d:
+				break
+		s.close()
+		record = extractdata(dom, tld, response, redo)
+		if record:
+			return record
+		except:
+			ish = "Error in connection to " + srv + " for " + dom
+			if verb:
+				print ish
 		
 #Get Correct server to use
 def findserver(tld, col):
@@ -219,14 +219,14 @@ def extractdata(dom, tld, data, stop):
 	#Parse whois results for appropriate data using appropriate plugin
 	else:
 		#Import the correct parsing module based on TLD or Registrar
-		#try:
-		parse = __import__(tld)
-		stripped = parse.parse(data)
-		return stripped
-		#except:
-		#	ish = "Error importing parser"
-		#	if verb:
-		#		print ish
+		try:
+			parse = __import__(tld)
+			stripped = parse.parse(data)
+			return stripped
+		except:
+			ish = "Error importing parser"
+			if verb:
+				print ish
 
 def main():
 	global servlist
