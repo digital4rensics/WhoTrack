@@ -2,16 +2,16 @@
 
 """
 WhoTrack.py originally written by Keith Gilbert - @digital4rensics
-www.digital4rensics.com - 5/1/13 - Version 0.1
+www.digital4rensics.com - 5/1/13 - Version 0.2
 
 The script will track basic domain WhoIs information based upon domains entered in the database.
 This is an ongoing work and is likely not suitable for production use at the moment.
-Planned improvements for: 1.) Proxy support 2.) Reporting 3.) History Tracking
+Planned improvements for: Proxy support, History Tracking
 
 No warranty is implied or expressed, use at your own risk.
 
-usage: WhoTrack.py [-h] [-d DATABASE] [-i INSERT] [-p PROXIES] [-t TEST]
-                   [-s SERVERS] [-v]
+usage: WhoTrack.py [-h] [-d DATABASE] [-i INSERT] [-p PROXIES] [-r REPORT]
+                   [-s SERVERS] [-t TEST] [-v]
 
 Track Daily Domain Registrant Changes
 
@@ -23,10 +23,12 @@ optional arguments:
                         Insert new domain in to the database
   -p PROXIES, --proxies PROXIES
                         Specify a list of proxies to conduct lookups
-  -t TEST, --test TEST  Bypass database to test parsers against a specific
-                        domain
+  -r REPORT, --report REPORT
+                        Specify a report filename other than the default
   -s SERVERS, --servers SERVERS
                         Specify different servers file
+  -t TEST, --test TEST  Bypass database to test parsers against a specific
+                        domain
   -v, --verbose         Enable command line output
 """
 
@@ -100,7 +102,7 @@ def dbsetup(name):
 			print ish
 		
 	try:
-		cur.execute("CREATE TABLE IF NOT EXISTS Domains(Domain TEXT, Name TEXT, Org TEXT, Addr TEXT, Email TEXT, Phone TEXT, Fax TEXT)")
+		cur.execute("CREATE TABLE IF NOT EXISTS Domains(Domain TEXT, Name TEXT, Org TEXT, Addr TEXT, Email TEXT, Phone TEXT, Fax TEXT, Updated TEXT)")
 		return cur
 	except:
 		ish = "Error creating database table"
@@ -111,7 +113,7 @@ def newdomain(dom, db):
 	try:
 		test = db.execute("SELECT count(*) FROM Domains WHERE Domain = ?", (dom,)).fetchone()[0]
 		if test == 0:
-			db.execute("INSERT INTO Domains VALUES(?, ?, ?, ?, ?, ?, ?)", (dom,None,None,None,None,None,None))
+			db.execute("INSERT INTO Domains VALUES(?, ?, ?, ?, ?, ?, ?, (SELECT date('now')))", (dom,None,None,None,None,None,None))
 		else:
 			ish = "Domain: " + dom + " already in database, not inserted."
 			if verb:
@@ -137,7 +139,8 @@ def getdata(db):
 def insertdata(data, db, dom):
 	test = []
 	current = []
-	for row in db.execute("SELECT * FROM Domains WHERE Domain = ?", (dom,)):
+	newest = db.execute("SELECT MAX(Updated) FROM Domains WHERE Domain = ?", (dom,)).fetchone()[0]
+	for row in db.execute("SELECT Domain, Name, Org, Addr, Email, Phone, Fax FROM Domains WHERE Domain = ? AND Updated = ?", (dom, newest)):
 		for elem in row:
 			current.append(elem)
 	test.extend([dom, data['name'], data['organization'], data['address'], data['email'], data['phone'], data['fax']])
@@ -157,8 +160,8 @@ def insertdata(data, db, dom):
 					
 	if change:	
 		ish = "Change detected\n" + "Old Data: " + str(current) + "\n" + "New Data: " + str(test) + "\n"
-		db.execute("UPDATE Domains SET Name=?, Org=?, Addr=?, Email=?, Phone=?, Fax=? WHERE Domain=?", 
-		(data['name'], data['organization'], data['address'], data['email'], data['phone'], data['fax'], dom))
+		db.execute("INSERT INTO Domains VALUES(?, ?, ?, ?, ?, ?, ?, (SELECT date('now')))", 
+		(dom, data['name'], data['organization'], data['address'], data['email'], data['phone'], data['fax']))
 		report.write(ish)
 		if verb:
 			print ish
