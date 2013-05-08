@@ -10,8 +10,8 @@ Planned improvements for: Proxy support, History Tracking
 
 No warranty is implied or expressed, use at your own risk.
 
-usage: WhoTrack.py [-h] [-d DATABASE] [-i INSERT] [-p PROXIES] [-r REPORT]
-                   [-s SERVERS] [-t TEST] [-v]
+usage: WhoTrack.py [-h] [-d DATABASE] [-i INSERT] [-l] [-p PROXIES]
+                   [-r REPORT] [-s SERVERS] [-t TEST] [-v]
 
 Track Daily Domain Registrant Changes
 
@@ -21,6 +21,7 @@ optional arguments:
                         Specify database name
   -i INSERT, --insert INSERT
                         Insert new domain in to the database
+  -l, --list            List all domains currently tracked
   -p PROXIES, --proxies PROXIES
                         Specify a list of proxies to conduct lookups
   -r REPORT, --report REPORT
@@ -127,7 +128,7 @@ def newdomain(dom, db):
 def getdata(db):
 	try:
 		domlist = []
-		for row in db.execute("SELECT Domain FROM Domains"):
+		for row in db.execute("SELECT DISTINCT Domain FROM Domains"):
 			domlist.append(row[0])
 		return domlist
 	except:
@@ -140,9 +141,10 @@ def insertdata(data, db, dom):
 	test = []
 	current = []
 	newest = db.execute("SELECT MAX(Updated) FROM Domains WHERE Domain = ?", (dom,)).fetchone()[0]
-	for row in db.execute("SELECT Domain, Name, Org, Addr, Email, Phone, Fax FROM Domains WHERE Domain = ? AND Updated = ?", (dom, newest)):
+	for row in db.execute("SELECT Domain, Name, Org, Addr, Email, Phone, Fax FROM Domains WHERE Domain = ? AND Updated = ? ORDER BY Name desc Limit 1", (dom, newest)):
 		for elem in row:
 			current.append(elem)
+	print data
 	test.extend([dom, data['name'], data['organization'], data['address'], data['email'], data['phone'], data['fax']])
 	i=0
 	change = False
@@ -235,6 +237,10 @@ def extractdata(dom, tld, data, stop):
 			ish = "Error importing parser"
 			if verb:
 				print ish
+				
+def listdomains(db):
+	for row in db.execute("SELECT DISTINCT Domain FROM Domains"):
+		print row
 
 def main():
 	global servlist
@@ -245,6 +251,7 @@ def main():
 	parser = argparse.ArgumentParser(description="Track Daily Domain Registrant Changes")
 	parser.add_argument("-d", "--database", help="Specify database name")
 	parser.add_argument("-i", "--insert", help="Insert new domain in to the database")
+	parser.add_argument("-l", "--list", action="store_true", help="List all domains currently tracked")
 	parser.add_argument("-p", "--proxies", help="Specify a list of proxies to conduct lookups")
 	parser.add_argument("-r", "--report", help="Specify a report filename other than the default")
 	parser.add_argument("-s", "--servers", help="Specify different servers file")
@@ -278,6 +285,12 @@ def main():
 	#If only inserting new domain
 	if args.insert:
 		newdomain(args.insert, db)
+		db.close()
+		sys.exit()
+		
+	#If listing current domains
+	if args.list:
+		listdomains(db)
 		db.close()
 		sys.exit()
 
