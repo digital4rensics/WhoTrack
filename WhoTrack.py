@@ -10,8 +10,8 @@ Planned improvements for: Proxy support, History Tracking
 
 No warranty is implied or expressed, use at your own risk.
 
-usage: WhoTrack.py [-h] [-d DATABASE] [-i INSERT] [-l] [-p PROXIES]
-                   [-r REPORT] [-s SERVERS] [-t TEST] [-v]
+usage: WhoTrack.py [-h] [-d DATABASE] [-f FORGET] [-i INSERT] [-l]
+                   [-p PROXIES] [-r REPORT] [-s SERVERS] [-t TEST] [-v]
 
 Track Daily Domain Registrant Changes
 
@@ -19,6 +19,8 @@ optional arguments:
   -h, --help            show this help message and exit
   -d DATABASE, --database DATABASE
                         Specify database name
+  -f FORGET, --forget FORGET
+                        Stop monitoring a domain (data is retained)
   -i INSERT, --insert INSERT
                         Insert new domain in to the database
   -l, --list            List all domains currently tracked
@@ -103,7 +105,7 @@ def dbsetup(name):
 			print ish
 		
 	try:
-		cur.execute("CREATE TABLE IF NOT EXISTS Domains(Domain TEXT, Name TEXT, Org TEXT, Addr TEXT, Email TEXT, Phone TEXT, Fax TEXT, Updated TEXT)")
+		cur.execute("CREATE TABLE IF NOT EXISTS Domains(Domain TEXT, Name TEXT, Org TEXT, Addr TEXT, Email TEXT, Phone TEXT, Fax TEXT, Updated TEXT, Forgotten TEXT)")
 		return cur
 	except:
 		ish = "Error creating database table"
@@ -114,7 +116,7 @@ def newdomain(dom, db):
 	try:
 		test = db.execute("SELECT count(*) FROM Domains WHERE Domain = ?", (dom,)).fetchone()[0]
 		if test == 0:
-			db.execute("INSERT INTO Domains VALUES(?, ?, ?, ?, ?, ?, ?, (SELECT date('now')))", (dom,None,None,None,None,None,None))
+			db.execute("INSERT INTO Domains VALUES(?, ?, ?, ?, ?, ?, ?, (SELECT date('now')), ?)", (dom,None,None,None,None,None,None,'No'))
 		else:
 			ish = "Domain: " + dom + " already in database, not inserted."
 			if verb:
@@ -128,7 +130,7 @@ def newdomain(dom, db):
 def getdata(db):
 	try:
 		domlist = []
-		for row in db.execute("SELECT DISTINCT Domain FROM Domains"):
+		for row in db.execute("SELECT DISTINCT Domain FROM Domains WHERE Forgotten = ?", ('No',)):
 			domlist.append(row[0])
 		return domlist
 	except:
@@ -144,7 +146,6 @@ def insertdata(data, db, dom):
 	for row in db.execute("SELECT Domain, Name, Org, Addr, Email, Phone, Fax FROM Domains WHERE Domain = ? AND Updated = ? ORDER BY Name desc Limit 1", (dom, newest)):
 		for elem in row:
 			current.append(elem)
-	print data
 	test.extend([dom, data['name'], data['organization'], data['address'], data['email'], data['phone'], data['fax']])
 	i=0
 	change = False
@@ -162,8 +163,8 @@ def insertdata(data, db, dom):
 					
 	if change:	
 		ish = "Change detected\n" + "Old Data: " + str(current) + "\n" + "New Data: " + str(test) + "\n"
-		db.execute("INSERT INTO Domains VALUES(?, ?, ?, ?, ?, ?, ?, (SELECT date('now')))", 
-		(dom, data['name'], data['organization'], data['address'], data['email'], data['phone'], data['fax']))
+		db.execute("INSERT INTO Domains VALUES(?, ?, ?, ?, ?, ?, ?, (SELECT date('now')), ?)", 
+		(dom, data['name'], data['organization'], data['address'], data['email'], data['phone'], data['fax'], 'No'))
 		report.write(ish)
 		if verb:
 			print ish
@@ -241,6 +242,20 @@ def extractdata(dom, tld, data, stop):
 def listdomains(db):
 	for row in db.execute("SELECT DISTINCT Domain FROM Domains"):
 		print row
+		
+def forget(dom, db):
+	try:
+		test = db.execute("SELECT count(*) FROM Domains WHERE Domain = ?", (dom,)).fetchone()[0]
+		if test == 0:
+			ish = "Error: Domain not found"
+			if verb:
+				print ish
+		else:
+			db.execute("UPDATE Domains SET Forgotten = ? WHERE Domain = ?", ('Yes', dom))
+	except:
+		ish = "Error forgetting the domain"
+		if verb:
+			print ish
 
 def main():
 	global servlist
@@ -250,6 +265,7 @@ def main():
 	
 	parser = argparse.ArgumentParser(description="Track Daily Domain Registrant Changes")
 	parser.add_argument("-d", "--database", help="Specify database name")
+	parser.add_argument("-f", "--forget", help="Stop monitoring a domain (data is retained)")
 	parser.add_argument("-i", "--insert", help="Insert new domain in to the database")
 	parser.add_argument("-l", "--list", action="store_true", help="List all domains currently tracked")
 	parser.add_argument("-p", "--proxies", help="Specify a list of proxies to conduct lookups")
@@ -285,6 +301,12 @@ def main():
 	#If only inserting new domain
 	if args.insert:
 		newdomain(args.insert, db)
+		db.close()
+		sys.exit()
+	
+	#If forgetting a tracked domain
+	if args.forget:
+		forget(args.forget, db)
 		db.close()
 		sys.exit()
 		
