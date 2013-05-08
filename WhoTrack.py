@@ -2,7 +2,7 @@
 
 """
 WhoTrack.py originally written by Keith Gilbert - @digital4rensics
-www.digital4rensics.com - 5/1/13 - Version 0.2
+www.digital4rensics.com - 5/8/13 - Version 0.2
 
 The script will track basic domain WhoIs information based upon domains entered in the database.
 This is an ongoing work and is likely not suitable for production use at the moment.
